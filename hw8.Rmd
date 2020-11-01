@@ -1,0 +1,159 @@
+---
+title: "hw8"
+author: "Yuen Tsz Abby Lau"
+date: "10/29/2020"
+output: pdf_document
+---
+
+## 5.3.3
+
+### show the o-u process
+
+This model is a special case of the Gaussian Markov process,
+
+$$\mathrm{d}r(t) = [g(t) + h(t)r(t)]\mathrm{d}t + \sigma(t)\mathrm{d}W(t)$$,
+
+where $g(t) = \alpha b$ and $h(t) = - alpha$.
+
+Let $$H(t ) = \int^{t}_0 h(s) ds  = -\alpha t$$
+
+By Itô's formula, we have
+
+$$\mathrm{d}(e^{-H(t)}r(t)) =
+e^{-H(t)}g(t)\mathrm{d}t +  e^{-H(t)}\sigma(t)\mathrm{d}W(t)$$
+
+and the general solution is given as following,
+
+\begin{equation}
+\begin{split}
+r(t + \Delta) = e^{H(t + \Delta)}r(t) + \int^{t + \Delta}_te^{H(t + \Delta)
+- H(s)}g(s)ds + 
+\int^{t + \Delta}_t e^{H(t) - H(s)} \sigma(s) \mathrm{d}W(s) \\
+= e^{-\alpha \Delta}r(t) + b(1 - e^{- \alpha\Delta}) +
+\int^{t + \Delta}_t e^{H(t) - H(s)} \sigma(s) \mathrm{d}W(s) 
+\end{split}
+\end{equation}
+
+Note that $\int^t_0 f(t)\mathrm{d}W \sim \mathcal{N} (0, \sqrt{\int^t_0 f(t)^2}\mathrm{d}t)$, 
+and let 
+$f(t) = e^{H(t) - H(s)}$, and thus
+$\int^{t + \Delta}_t f(t)^2 \mathrm{d}t = \frac{1 - e^{-2\alpha\Delta}}{2\alpha}$.
+
+Thus, equation (1) can be simplified as following,
+
+$$r(t + \Delta) =  e^{-\alpha\Delta}r(t) + b(1 - e^{- \alpha\Delta}) +
+\frac{\sigma}{\sqrt{2\alpha}} \sqrt{1 - e^{-2\alpha\Delta}}Z$$
+
+### a random walk construction
+
+```{r}
+o_u_walk <- function(r0 = 1, alpha, b, sigma, Delta = 1, endT = 500) {
+    ind <- seq(from = 0, to = endT, by = Delta)
+    tmp1 <- exp(-alpha * Delta)
+    tmp2 <- b * (1- tmp1)
+    tmp3 <- sigma * sqrt(1 - exp(-2 * alpha * Delta))/ sqrt(2 * alpha)
+    rt_dat <- data.frame(time = ind, rt = r0)
+    for (i in 2:length(ind)) {
+        rt_dat[i, 2] <- tmp1 * rt_dat[i - 1, 2] + tmp2 + tmp3 * rnorm(1)
+    }
+    return(rt_dat)
+}
+
+a <- o_u_walk(alpha = 0.1, sigma = 0.1, b = 5)
+b <- o_u_walk(alpha = 0.1, sigma = 0.1, b = -5)
+
+c <- o_u_walk(alpha = 5, sigma = 0.5, b = 5)
+d <- o_u_walk(alpha = 5, sigma = 0.1, b = 5)
+e <- o_u_walk(alpha = 5, sigma = 0.2, b = 5)
+
+f <- o_u_walk(alpha = 0.1, sigma = 0.2, b = -5)
+g <- o_u_walk(alpha = 1, sigma = 0.2, b = -5)
+h <- o_u_walk(alpha = 5, sigma = 0.2, b = -5)
+
+library(ggplot2)
+ggplot(data = a, aes(x = time)) + 
+    geom_line(aes(y = rt), colour = "red") +
+    geom_line(aes(y = b[,2]), colour = "green") +
+    ylab("rt")
+
+ggplot(data = a, aes(x = time)) + 
+    geom_line(aes(y = c[,2]), colour = "blue") +
+    geom_line(aes(y = d[,2]), colour = "purple") +
+    geom_line(aes(y = e[,2]), colour = "orange")  +
+    ylab("rt")
+
+ggplot(data = a, aes(x = time)) + 
+    geom_line(aes(y = f[,2]), colour = "blue") +
+    geom_line(aes(y = g[,2]), colour = "purple") +
+    geom_line(aes(y = h[,2]), colour = "orange")  +
+    ylab("rt")
+```
+
+It seems that the value $b$ determines the sign of $r(t)$. The other quantity
+$\sigma$ determine how bumpy the graph looks like, and a smaller $\sigma$ tends 
+to make a flatter graph. Moreover, the magnitude of each bump is decided by the
+value of $\alpha$. The magnitude of each bump appears to be larger when 
+$\alpha$ is small.
+
+
+### Euler method 
+
+```{r}
+
+rou <- function(dt, n = 1, alpha = 5, b = 5, sigma = 0.5, r0 = 1) {
+    tmp1 <- exp(-alpha * dt)
+    tmp2 <- b * (1 - tmp1)
+    tmp3 <- sigma * sqrt(1 - exp(-2 * alpha * dt))/ sqrt(2 * alpha)
+    tmp1 * r0 + tmp2 + tmp3 * rnorm(n)
+}
+
+rou_euler <- function(dt, delta = 0.01, n = 1, 
+                      alpha = 5, b = 5, sigma = 0.5, r0 = 1) {
+    ng <- dt / delta
+    for (i in seq(1:ng)) {
+        rt <- r0 + alpha * (b - r0) * delta + sigma * rnorm(n, sd = sqrt(delta))
+        r0 <- rt
+    }
+    rt
+}
+
+set.seed(8593)
+dat1 <- rou(r0 = 1, sigma = 0.2, n = 1000, 
+            dt = 1, b = 5, alpha = 5)
+dat2 <- rou_euler(delta = 1, alpha = 5, b = 5, 
+                  sigma = 0.2, n = 1000, 
+               r0 = 1, dt = 1)
+dat3 <- rou_euler(delta = .5, alpha = 5, b = 5, 
+                  sigma = 0.2, n = 1000, 
+               r0 = 1, dt = 1)
+dat4 <- rou_euler(delta = .1, alpha = 5, b = 5, 
+                  sigma = 0.2, n = 1000, 
+               r0 = 1, dt = 1)
+dat5 <- rou_euler(delta = .01, alpha = 5, b = 5, 
+                  sigma = 0.2, n = 1000, 
+               r0 = 1, dt = 1)
+df <- data.frame(true = dat1, app1 = dat2, app2 = dat3,
+                 app3 = dat4, app4 = dat5)
+ggplot(data = df, aes(x = true)) + 
+    geom_density(colour = "blue") +
+    geom_density(aes(x = app1), colour = "purple")  +
+    xlab("rt")
+
+ggplot(data = df, aes(x = true)) + 
+    geom_density(colour = "blue") +
+    geom_density(aes(x = app2), colour = "purple") +
+    xlab("rt")
+
+ggplot(data = df, aes(x = true)) + 
+    geom_density(colour = "blue") +
+    geom_density(aes(x = app3), colour = "purple") +
+    xlab("rt")
+
+ggplot(data = df, aes(x = true)) + 
+    geom_density(colour = "blue") +
+    geom_density(aes(x = app4), colour = "purple") +
+    xlab("rt")
+
+```
+
+Small $\delta$ gives us a better approximation.
