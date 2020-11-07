@@ -157,3 +157,51 @@ ggplot(data = df, aes(x = true)) +
 ```
 
 Small $\delta$ gives us a better approximation.
+
+
+## 5.3.4 Poisson Process
+
+
+### distribution to N(5)
+
+```{r}
+intfun <- function(x) {
+    sqrt(x) + exp(-x) * sin(2 * pi * x)
+}
+(poimean <- integrate(intfun, lower = 0, upper = 5))
+```
+
+$N(5)$ is a Poisson random variable with mean `r poimean$value`.
+
+### simulate from the Poisson process
+
+```{r}
+## simulation of a nonhomegeneous Poisson process
+## with the thinning method
+rnhpp <- function(intensity, intmax, tmax) {
+    n <- rpois(1, intmax)
+    tt <- runif(n, 0, tmax)
+    u <- runif(n)
+    accept <- u < intensity(tt) / intmax
+    sort(tt[accept])
+}
+```
+
+
+### plot 10000 samples
+
+```{r}
+
+plotfun <- function(x, tmax = 5) {
+    poimean <- integrate(intfun, lower = 0, upper = tmax)
+    intfun(x)/poimean$value
+}
+library(ggplot2)
+simdat <- data.frame(x = unlist(replicate(10000, rnhpp(intfun, intfun(5), 5))))
+ggplot(data = simdat, aes(x)) + 
+    geom_density(colour = "blue") +
+    geom_function(fun = plotfun, colour = "red") +
+     xlim(0, 5)
+```
+
+
